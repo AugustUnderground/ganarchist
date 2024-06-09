@@ -1,6 +1,6 @@
-<center><h1>GANARCHIST</h1></center>
+# GANARCHIST
 
-<center>**Ga**llium **N**itrid H**a**lf B**r**idge Swit**chi**ng Lo**s**s Predic**t**ion</center>
+**Ga**llium **N**itrid H**a**lf B**r**idge Swit**chi**ng Lo**s**s Predic**t**ion
 
 ```
         GGGGGGGGGGGGG                              NNNNNNNN        NNNNNNNN
