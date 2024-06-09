@@ -1,0 +1,72 @@
+* "pspice" description for "studienarbeit", "GS66506T", "pspice" 
+
+.SUBCKT GS66506T gatein drainin sourcein
+*
+*
+.param 	sf = 0.73
+.param 	rTC=-0.004  gan_res={44.75e-3}	metal_res={3.2e-3}	gtc=2.83 	sh_s = 0.05263	sh_d = 0.94376
+.param  cur=.099   	x0_0=1.1	  		x0_1=1.1  x0_2=1.0	thr = 1.61  itc=0.42		atc=90.8
+*
+*
+rd drainin drain {sh_d * (metal_res/2.0 *(1-1*rTc*(Temp-25)) + gan_res*PWR((Temp+273)/298,gtc)) / sf }
+rs sourcein source {sh_s * (metal_res/2.0 *(1-1*rTc*(Temp-25)) + gan_res*PWR((Temp+273)/298,gtc)) / sf }
+rg gatein gate {1.0 * sf}
+*
+*
+Rcsdconv drain source {4000Meg}
+Rcgsconv gate source {4000Meg}
+Rcgdconv gate drain {4000Meg}
+*
+*
+gswitch drain2 source2 value = {(if(v(drain2,source2)>0,
++   (cur*(-(Temp-25)*itc+atc)*log(1.0+exp(26*(v(gate,source2)-thr)))*
++	v(drain2,source2)/(1 + max(x0_0+x0_1*(v(gate,source2)+x0_2),0.2)*v(drain2,source2))),
+
++   (-cur*(-(Temp-25)*itc+atc)*log(1.0+exp(26*(v(gate,drain2)-thr)))*
++	v(source2, drain2)/(1 + max(x0_0+x0_1*(v(gate,drain2)+x0_2),0.2)*v(source2,drain2))))) * sf}
+*
+*
+R_drain2 drain2 drain {(1e-4)}
+R_source2 source2 source {(1e-4)}
+*
+*
+C_GS1	 gate source  	{228.3e-12 * sf}
+E_IGS1  tl_gs1 bl_gs1 	Value = { sf * ( 	-0.9431e-12*(1-1./(1+exp(0.0177*(-v(drain, source)+300.03))))
++						  					-0.4182e-10*(1-1./(1+exp(0.0700*(-v(drain, source)+33.3))))
++						 					-0.5657e-10*(1-1./(1+exp(0.277*(-v(drain, source)+1.1))))
++											-(-0.435*90.48e-12*(1-1./(1+exp(0.06*(-v(drain, source)+1.1))))
++                        					-0.435*0.54e-10*(1-1./(1+exp(0.9*(-v(drain, source)+2.1))))))*v(gate,source) }
+V_INGS1 br_gs1 bl_gs1 	{0.0}
+C_IGS1  br_gs1 tr_gs1 	{1.0e-6}
+R_IGS1  tr_gs1 tl_gs1 	{1e-3}
+F_IGS1  gate source 	V_INGS1 {1.0e6}
+R_IGS12 bl_gs1 source 	{100Meg}
+*
+*
+E_IGS2  tl_gs2 bl_gs2 	Value={ 0.464*2.23e-010*log(1+exp(6.5*(v(gate,source)-1.45))) * sf }
+V_INGS2 br_gs2 bl_gs2 	{0.0}
+C_IGS2  br_gs2 tr_gs2 	{1.0e-6}
+R_IGS2  tr_gs2 tl_gs2 	{1e-3}
+F_IGS2  gate source 	V_INGS2 {1.0e6}
+R_IGS22 bl_gs2 source 	{100Meg}
+*
+*
+C_GD   gate drain  	{0.6e-012 * sf}
+E_IGD	 tl_gd bl_gd 	Value={ 0.444*4.6e-10*log(1+exp(0.277*(v(gate, drain)+1.1))) * sf + 0.444*13.2e-10*log(1+exp(0.070*(v(gate, drain)+33.3))) * sf + 0.444*1.2e-10*log(1+exp(0.0177*(v(gate, drain)+300.03))) * sf }
+V_INGD br_gd bl_gd 	{0.0}
+C_IGD  br_gd tr_gd 	{1.0e-6}
+R_IGD  tr_gd tl_gd 	{1e-3}
+F_IGD  gate drain 	V_INGD {1.0e6}
+R_IGD2 bl_gd drain 	{100Meg}
+*
+*
+C_SD	 source drain  	{0.8e-010 * sf}
+E_ISD	 tl_sd bl_sd 	Value={ 0.444*4.4e-9*log(1+exp(.15*(v(source,drain)+68))) * sf + 0.444*6.56e-9*log(1+exp(.03*(v(source,drain)+180))) * sf }
+V_INSD br_sd bl_sd 	{0.0}
+C_ISD  br_sd tr_sd 	{1.0e-6}
+R_ISD  tr_sd tl_sd 	{1e-3}
+F_ISD  source2 drain2	V_INSD {1.0e6}
+R_ISD2 bl_sd drain2 	{100Meg}
+*
+*
+.ENDS GS66506T

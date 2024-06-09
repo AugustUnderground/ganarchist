@@ -1,0 +1,67 @@
+name:                ganarchist
+version:             0.1.0.0
+github:              "augustunderground/ganarchist"
+license:             BSD-3-Clause
+author:              "Yannick Uhlmann"
+maintainer:          "augustunderground@pm.me"
+copyright:           "2024 Yannick Uhlmann"
+
+extra-source-files:
+- README.md
+- CHANGELOG.md
+
+# Metadata used when publishing your package
+synopsis:            "Switching loss prediction of High-Voltage GaN Half-Bridges"
+category:            "ML, Power Electronics"
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/augustunderground/ganarchist#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- libtorch-ffi-helper
+- libtorch-ffi
+- hasktorch
+- containers
+- split
+- rando
+- mtl
+- matplotlib
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src
+
+executables:
+  ganarchist-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - ganarchist
+
+tests:
+  ganarchist-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - ganarchist

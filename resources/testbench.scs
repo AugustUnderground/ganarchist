@@ -1,0 +1,88 @@
+// Switching Loss Testbench
+
+simulator lang=spectre
+
+global 0
+
+parameters tlo0=4.9u tlo1=4.9u thi0=4.9u thi1=4.9u \
+    tdead=10n tperiod=10u trise=1n tfall=1n \
+    iload=60 rg0=500m rg1=5 vsup=200 vgate=6 \
+    minc=100a
+
+pspice_include "./%TRANSISTOR%.pspice"
+
+Rghi0 (hi0 ghi) resistor r=rg0
+Rghi1 (hi1 ghi) resistor r=rg1
+
+Rglo0 (lo0 glo) resistor r=rg0
+Rglo1 (lo1 glo) resistor r=rg1
+
+Whi0 (out  hi0 swhi0 0) relay vt1=1 ropen=1M rclosed=1m
+Whi1 (gpos hi1 swhi1 0) relay vt1=1 ropen=1M rclosed=1m
+
+Wlo0 (supn lo0 swlo0 0) relay vt1=1 ropen=1M rclosed=1m
+Wlo1 (gneg lo1 swlo1 0) relay vt1=1 ropen=1M rclosed=1m
+
+Iout (out 0) isource dc=iload type=dc
+
+Ihi (ghi supp out) %TRANSISTOR% %NETLISTING%
+
+Ilo (glo out supn) %TRANSISTOR% %NETLISTING%
+
+Vsupn (supn 0) vsource dc=-vsup type=dc
+Vsupp (supp 0) vsource dc=vsup type=dc
+
+//Vghi (ghi out) vsource dc=vgate type=pulse period=tperiod\
+//    delay=0 rise=trise fall=tfall width=((tperiod*0.5)-(tdead/2))\
+//    val0=0 val1=vgate
+//Vglo (glo supn) vsource dc=vgate type=pulse period=tperiod \
+//    delay=((tperiod*0.5)+(tdead/2)) rise=trise fall=tfall \
+//    width=((tperiod*0.5)-(tdead/2)) val0=0 val1=vgate
+
+Vglo (gneg supn) vsource dc=vgate type=dc
+Vghi (gpos out)   vsource dc=vgate type=dc
+
+Vswlo0 (swlo0 0) vsource dc=0 type=pulse delay=tperiod/2 val0=vgate val1=0 \
+        period=tperiod rise=trise fall=tfall width=tperiod/2 - tdead
+Vswlo1 (swlo1 0) vsource dc=0 type=pulse delay=tperiod/2 val0=0 val1=vgate \
+        period=tperiod rise=trise fall=tfall width=tperiod/2 - tdead
+Vswhi0 (swhi0 0) vsource dc=0 type=pulse val0=vgate val1=0 \
+        period=tperiod rise=trise fall=tfall width=tperiod/2 - tdead
+Vswhi1 (swhi1 0) vsource dc=0 type=pulse val0=0 val1=vgate \
+        period=tperiod rise=trise fall=tfall width=tperiod/2 - tdead
+
+//ic glo=-200 gneg=-200 gpos=205 ghi=205 out=200 
+//ic gpos=205 ghi=205 out=200 
+
+save *:currents sigtype=subckt
+
+//simulatorOptions options psfversion="1.4.0" reltol=1e-3 vabstol=1e-6 \
+//    iabstol=1e-12 temp=27 tnom=27 homotopy=all limit=delta scalem=1.0 \
+//    scale=1.0 compatible=spice2 gmin=1e-12 rforce=1 \
+//    redefinedparams=warning maxnotes=5 maxwarns=5 digits=5 cols=80 \
+//    pivrel=1e-3 sensfile="../psf/sens.output" checklimitdest=psf 
+
+simulatorOptions options reltol=1e-3 vabstol=1e-6 iabstol=1e-12 temp=27 tnom=27 \
+    save=selected rawfmt=nutbin highvoltage=yes tempeffects=all \
+    homotopy=all limit=delta scalem=1.0 scale=1.0 gmin=1e-12 rforce=1 \
+    redefinedparams=warning maxnotes=5 maxwarns=5 digits=5 cols=80 \
+    pivrel=1e-3 compatible=spice2 useterms=name sensfile="./sens.output"
+
+//tran tran stop=17u errpreset=conservative cmin=100a write="spectre.ic" \
+//    writefinal="spectre.fc" method=trap annotate=status maxiters=5 
+
+tran tran stop=17u errpreset=conservative method=trap annotate=status \
+    maxstep=1.70000e-07 ic=all useprevic=no skipdc=no lteratio=10.0000 \
+    maxiters=5 relref=alllocal title="tran" cmin=minc 
+
+    //cmin=100a write="spectre.ic" writefinal="spectre.fc"\
+
+// finalTimeOP info what=oppoint where=rawfile
+// modelParameter info what=models where=rawfile
+// element info what=inst where=rawfile
+// outputParameter info what=output where=rawfile
+// designParamVals info what=parameters where=rawfile
+// primitives info what=primitives where=rawfile
+// subckts info what=subckts where=rawfile
+// save Vout gate_low gate_high plus_Vq minus_Vq I10:2 I11:2 
+// saveOptions options save=allpub 

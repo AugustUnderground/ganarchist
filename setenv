@@ -1,0 +1,5 @@
+#!/bin/sh
+
+LIB_DIR="$(readlink ./libtorch)/lib"
+export DEVICE="cuda:0"
+export LD_LIBRARY_PATH="$LIB_DIR":$LD_LIBRARY_PATH

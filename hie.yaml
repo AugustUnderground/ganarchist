@@ -1,0 +1,10 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "ganarchist:lib"
+
+    - path: "./app/Main.hs"
+      component: "ganarchist:exe:ganarchist-exe"
+
+    - path: "./test"
+      component: "ganarchist:test:ganarchist-test"

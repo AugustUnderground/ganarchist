@@ -1,0 +1,6 @@
+.stack-work/
+*~
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
