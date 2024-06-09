@@ -3,7 +3,7 @@
 **Ga**llium **N**itrid H**a**lf B**r**idge Swit**chi**ng Lo**s**s Predic**t**ion
 
 ```
-        GGGGGGGGGGGGG                              NNNNNNNN        NNNNNNNN
+        GGGGGGGGGGGGG                                    NNNNNNNN        NNNNNNNN
      GGG::::::::::::G ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ N:::::::N       N::::::N
    GG:::::::::::::::G ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ N::::::::N      N::::::N
   G:::::GGGGGGGG::::G ⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣧⣶⣶⣶⣦⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀ N:::::::::N     N::::::N
