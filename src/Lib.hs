@@ -35,10 +35,13 @@ splitBatches :: Int -> UT.Tensor -> [UT.Tensor]
 splitBatches bs = filter ((bs==) . head . UT.shape) . UT.split bs (UT.Dim 0)
                 . UT.toDevice (T.Device T.CUDA 1)
 
--- | Read CSV data into Tensor
-readCSV :: String -> FilePath -> IO ([String], UT.Tensor)
-readCSV sep path = do
+-- | Read Delimited data into Tensor
+readDSV :: String -> FilePath -> IO ([String], UT.Tensor)
+readDSV sep path = do
     file <- lines <$> readFile path
     let col = splitOn sep $ head file
         dat = UT.asTensor . map (map (read @Float) . splitOn sep) $ tail file
     pure (col, dat)
+
+readCSV :: FilePath -> IO ([String], UT.Tensor)
+readCSV = readDSV ","
