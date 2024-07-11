@@ -9,43 +9,43 @@ packages:
     pantry-tree:
       sha256: e8d9e564dd14911fec003a402e17c4281290512f9e36e5deec58318ef5fd3440
       size: 8479
-    sha256: abf1d12d21c6224da4246e249252e444b978eb061ac8b717d8d439aa4b787a25
-    size: 886746
+    sha256: 23451e09d0564e0c430febd532422a8ddc1e9d0b1131c54a378835c43893734f
+    size: 877391
     subdir: hasktorch
-    url: https://github.com/hasktorch/hasktorch/archive/05ce666cf76ff462c884e92ba9b37b5f8cf82a8e.tar.gz
+    url: https://github.com/hasktorch/hasktorch/archive/ab8d09cb147eab39d096876d1b954bcf0be08191.tar.gz
     version: 0.2.0.0
   original:
     subdir: hasktorch
-    url: https://github.com/hasktorch/hasktorch/archive/05ce666cf76ff462c884e92ba9b37b5f8cf82a8e.tar.gz
+    url: https://github.com/hasktorch/hasktorch/archive/ab8d09cb147eab39d096876d1b954bcf0be08191.tar.gz
 - completed:
     name: libtorch-ffi
     pantry-tree:
-      sha256: f054f0629cba9cc3b1636148d522375cc86763acc0a5fc3caf000fcd67ea8600
-      size: 9512
-    sha256: abf1d12d21c6224da4246e249252e444b978eb061ac8b717d8d439aa4b787a25
-    size: 886746
+      sha256: 1c1557f00a359c40366b548ef9f1dd0c21a5efb85d21870fc974a158e2c13f47
+      size: 9576
+    sha256: 23451e09d0564e0c430febd532422a8ddc1e9d0b1131c54a378835c43893734f
+    size: 877391
     subdir: libtorch-ffi
-    url: https://github.com/hasktorch/hasktorch/archive/05ce666cf76ff462c884e92ba9b37b5f8cf82a8e.tar.gz
+    url: https://github.com/hasktorch/hasktorch/archive/ab8d09cb147eab39d096876d1b954bcf0be08191.tar.gz
     version: 2.0.0.0
   original:
     subdir: libtorch-ffi
-    url: https://github.com/hasktorch/hasktorch/archive/05ce666cf76ff462c884e92ba9b37b5f8cf82a8e.tar.gz
+    url: https://github.com/hasktorch/hasktorch/archive/ab8d09cb147eab39d096876d1b954bcf0be08191.tar.gz
 - completed:
     name: libtorch-ffi-helper
     pantry-tree:
       sha256: 157f288eeb49ee5842432c8816507fc1845b85e7bdc2902e23deb4a5e6b0c33e
       size: 214
-    sha256: abf1d12d21c6224da4246e249252e444b978eb061ac8b717d8d439aa4b787a25
-    size: 886746
+    sha256: 23451e09d0564e0c430febd532422a8ddc1e9d0b1131c54a378835c43893734f
+    size: 877391
     subdir: libtorch-ffi-helper
-    url: https://github.com/hasktorch/hasktorch/archive/05ce666cf76ff462c884e92ba9b37b5f8cf82a8e.tar.gz
+    url: https://github.com/hasktorch/hasktorch/archive/ab8d09cb147eab39d096876d1b954bcf0be08191.tar.gz
     version: 2.0.0.0
   original:
     subdir: libtorch-ffi-helper
-    url: https://github.com/hasktorch/hasktorch/archive/05ce666cf76ff462c884e92ba9b37b5f8cf82a8e.tar.gz
+    url: https://github.com/hasktorch/hasktorch/archive/ab8d09cb147eab39d096876d1b954bcf0be08191.tar.gz
 snapshots:
 - completed:
-    sha256: 629fdd46125079fa6d355106005b2ab88bd39332169dd416fda06d5c0aaa63e2
-    size: 713332
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/17.yaml
-  original: lts-22.17
+    sha256: 87da71cb0ae9ee1ea1bf51a8eb9812f39f779be76abc0a3c926defd8afda05d1
+    size: 719139
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/28.yaml
+  original: lts-22.28
