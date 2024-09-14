@@ -10,6 +10,7 @@ module Lib ( liftState
            , splitBatches
            , readCSV
            , loadCSVs
+           , readTSV
            , Transistor (..)
            , cpu
            , gpu
@@ -24,7 +25,7 @@ module Lib ( liftState
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Time.Format         (formatTime, defaultTimeLocale)
 import           System.Directory
-import           Data.List                (elemIndex)
+import           Data.List                (elemIndex, isPrefixOf)
 import           Data.Maybe               (fromJust)
 import           Data.List.Split          (splitOn)
 import           Control.Monad.State      (evalState, MonadState (put, get), State, StateT)
@@ -120,6 +121,14 @@ loadCSVs path = do
     pure (columns, values)
   where
     csvs = map (\t -> path ++ "/" ++ show t ++ ".csv")  [(minBound :: Transistor) .. ]
+
+-- | Read data from TXT file
+readTSV :: FilePath -> IO ([String], Tensor)
+readTSV path = do
+  file <- filter (not . isPrefixOf "%") . lines <$> readFile path
+  let col = drop 2 .words $ head file
+      dat = T.asTensor . map (map (read @Float) . drop 2 . words) $ tail file
+  pure (col, dat)
 
 -- | Current Timestamp as formatted string
 currentTimeStamp :: String -> IO String
