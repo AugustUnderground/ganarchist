@@ -2,7 +2,11 @@
 
 module Main (main) where
 
-import Lib
+import Run (train)
 
 main :: IO ()
-main = putStrLn "Foobar"
+main = do 
+    putStrLn $ "Training for " ++ show epochs ++ " epochs"
+    train epochs
+  where
+    epochs = 50

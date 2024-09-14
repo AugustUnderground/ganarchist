@@ -29,6 +29,9 @@ dependencies:
 - rando
 - mtl
 - matplotlib
+- data-default-class
+- time
+- directory
 
 ghc-options:
 - -Wall
