@@ -16,7 +16,7 @@ import           HyperParameters
 import           Data.List                 (elemIndex)
 import           Data.Maybe                (fromJust)
 import           Control.Monad             (when)
-import           Control.Monad.State       (gets, MonadIO (..), MonadState (..), StateT (..))
+import           Control.Monad.State       (gets, MonadIO (..), MonadState (..), StateT (..), evalStateT)
 import           Torch                     ( Tensor, Dim (..), LearningRate
                                            , KeepDim (..), Reduction (..))
 import qualified Torch                as T
@@ -56,7 +56,7 @@ validEpoch [] = do
     let l' = T.stack (Dim 0) lossBuffer'
         l  = T.meanDim (Dim 0) RemoveDim T.Float l'
         vl = T.asValue $ T.mean l
-    liftIO . putStrLn $ "\tValid Loss: " ++ show l
+    liftIO . putStrLn $ "\tValid Loss: " ++ show vl
     put s { lossBuffer' = [], validLoss = vl : validLoss }
 validEpoch (b:bs) = do
     s@TrainState{..} <- get
@@ -78,9 +78,9 @@ trainEpoch :: [Batch] -> StateT TrainState IO ()
 trainEpoch [] = do
     s@TrainState{..} <- get
     let l' = T.mean . T.cat (Dim 0) . map (T.reshape [1]) $ lossBuffer
-        l  = T.asValue l'
-    liftIO . putStrLn $ "\tTrain Loss: " ++ show l'
-    put s {lossBuffer = [], trainLoss = l : trainLoss}
+        tl = T.asValue l'
+    liftIO . putStrLn $ "\tTrain Loss: " ++ show tl
+    put s {lossBuffer = [], trainLoss = tl : trainLoss}
     pure ()
 trainEpoch (b:bs) = do
     s@TrainState{..} <- get
@@ -92,7 +92,7 @@ trainEpoch (b:bs) = do
 shuffleData :: Tensor -> Tensor -> StateT TrainState IO [Batch]
 shuffleData xs ys = do
     TrainState{..} <- get
-    idx <- liftIO . flip T.multinomialIO' nRows $ T.arange' 0 nRows 1
+    idx <- liftIO . flip T.multinomialIO' nRows . T.toDevice gpu $ T.arange' 0 nRows 1
     let xs' = splitBatches batchSize $ T.indexSelect 0 idx xs
         ys' = splitBatches batchSize $ T.indexSelect 0 idx ys
     pure $ zipWith Batch xs' ys'
@@ -116,7 +116,7 @@ runTraining td vd = do
     s@TrainState{..} <- get
     when (head validLoss == minimum validLoss) $ do
         liftIO $ putStrLn "\tNew model Saved!"
-        liftIO $ saveCheckPoint (modelPath ++ "-checkpoint.pt") model optim
+        liftIO $ saveCheckPoint modelPath model optim
     let epoch' = epoch - 1
     put $ s {epoch = epoch'}
     if epoch' <= 0 then pure model else runTraining td vd
@@ -127,49 +127,52 @@ train num = do
     modelDir <- createModelDir "./models"
 
     (header,datRaw) <- loadCSVs dataPath
-    let nRows = head $ T.shape datRaw
 
     let idxHi = fromJust $ elemIndex "energy_high" header
-        idxLo = fromJust $ elemIndex "energy_lo" header
+        idxLo = fromJust $ elemIndex "energy_low" header
         hi    = T.select 1 idxHi datRaw
         lo    = T.select 1 idxLo datRaw
-        msk   =  T.logicalAnd (T.lt hi 500.0e-6 `T.logicalAnd` T.gt hi 10.0e-9)
-                              (T.lt lo 500.0e-6 `T.logicalAnd` T.gt lo 10.0e-9)
+        msk   = T.logicalAnd (T.lt hi 500.0e-6 `T.logicalAnd` T.gt hi 10.0e-9)
+                             (T.lt lo 500.0e-6 `T.logicalAnd` T.gt lo 10.0e-9)
         dat'  = maskSelect 0 msk datRaw
+        nRows = head $ T.shape dat'
 
-    datShuffled <- flip (T.indexSelect 0) dat' <$> T.multinomialIO' (T.arange' 0 nRows 1) nRows 
+    !datShuffled <- flip (T.indexSelect 0) dat' <$> T.multinomialIO' (T.arange' 0 nRows 1) nRows 
 
     let ts    = floor @Float $ 0.85 * realToFrac (head $ T.shape datShuffled)
         datX' = headerSelect header paramsX datShuffled
         datY' = headerSelect header paramsY datShuffled
-        minX = fst . T.minDim (Dim 0) RemoveDim $ datX'
-        maxX = fst . T.maxDim (Dim 0) RemoveDim $ datX'
-        minY = fst . T.minDim (Dim 0) RemoveDim $ datY'
-        maxY = fst . T.maxDim (Dim 0) RemoveDim $ datY'
-        dfX  = scale minX maxX datX'
-        dfY  = scale minY maxY datY'
-        dat  = T.cat (Dim 1) [dfX, dfY]
+        minX  = fst . T.minDim (Dim 0) RemoveDim $ datX'
+        maxX  = fst . T.maxDim (Dim 0) RemoveDim $ datX'
+        minY  = fst . T.minDim (Dim 0) RemoveDim $ datY'
+        maxY  = fst . T.maxDim (Dim 0) RemoveDim $ datY'
+        datX  = scale minX maxX datX'
+        datY  = scale minY maxY datY'
+        dat   = T.toDevice gpu $ T.cat (Dim 1) [datX, datY]
 
     let [datTrain,datValid] = T.split ts (Dim 0) dat
 
-    mdl <- T.toDevice gpu <$> T.sample (NetSpec dimX dimY)
-    opt <- T.initOptimizer opt' $ T.flattenParameters mdl
+    net <- T.toDevice gpu <$> T.sample spec
+    opt <- T.initOptimizer opt' $ T.flattenParameters net
 
-    let initialState = TrainState num l l l l mdl opt α' bs' modelDir paramsX paramsY
+    let initialState = TrainState num l l l l net opt α' bs' modelDir paramsX paramsY
 
     -- evalStateT (runTraining datTrain datValid) initialState
     --     >>= withGrad >>= saveCheckPoint modelDir
-    (net',_) <- runStateT (runTraining datTrain datValid) initialState
+    _ <- runStateT (runTraining datTrain datValid) initialState
 
+    -- let modelDir = "models/20240914-183529"
+    !net' <- loadCheckPoint modelDir spec >>= noGrad . fst
     let predict = scale' minY maxY . forward net' . scale minX maxX
 
-    traceModel dimX paramsX paramsY predict >>= saveInferenceModel modelDir
-    net'' <- unTraceModel <$> loadInferenceModel modelDir
+    traceModel dimX paramsX paramsY predict >>= saveInferenceModel modelDir 
+    trace <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
 
-    -- testModel net'' xs ys
+    testModel paramsY net'' datX' datY'
 
-    putStrLn $ "Traced Model saved in " ++ modelDir
+    putStrLn $ "Final checkpoint in " ++ modelDir
   where
+    spec     = NetSpec dimX dimY
     l        = []
     dataPath = "./data"
     paramsY  = ["C_ISS", "C_OSS", "C_RSS", "I_DSS", "Q_G", "Q_GD", "Q_GS", "R_DS_on", "R_G"]
@@ -177,35 +180,10 @@ train num = do
     dimY     = length paramsY
     dimX     = length paramsX
 
--- testModel :: PDK.ID -> CKT.ID -> (T.Tensor -> T.Tensor) -> [String] -> [String]
---           -> DF.DataFrame T.Tensor -> IO ()
--- testModel pdk ckt mdl paramsX paramsY df = do
---     createDirectoryIfMissing True plotPath
---     dat <- DF.sampleIO 1000 False df
---     -- dat <- DF.shuffleIO df
---     let xs  = DF.values $ DF.lookup paramsX dat
---         ys  = DF.values $ DF.lookup paramsY dat
---         ys' = mdl xs
---     mapM_ (uncurry' (plt plotPath))  $ zip3 paramsY (T.cols ys) (T.cols ys') 
---     mapM_ (uncurry  (hst plotPath))  $ zip  paramsY (T.cols ys)
---     mapM_ (uncurry  (hst' plotPath)) $ zip  paramsX (T.cols xs)
---     dat' <- DF.sampleIO 10 False df
---     let x  = DF.values $ DF.lookup paramsX dat'
---         y  = DF.values $ DF.lookup paramsY dat'
---         y' = DF.values . DF.dropNan . DF.DataFrame paramsY $ mdl x
---     print x
---     print y
---     print y'
---     dat'' <- DF.sampleIO 100 False df
---     let ex = DF.values $ DF.lookup paramsX dat''
---         ey = DF.values $ DF.lookup paramsY dat''
---         ey' = DF.values . DF.dropNan . DF.DataFrame paramsY $ mdl ex
---         ae = (/ ey) $ T.l1Loss T.ReduceNone ey ey'
---         mae = T.meanDim (T.Dim 0) T.RemoveDim T.Float ae
---         mape = 100 * mae
---         mape' = T.mean mape
---     print mae
---     print mape
---     print mape'
---   where
---     plotPath = "./plots/" ++ show pdk ++ "/" ++ show ckt
+testModel :: [String] -> (T.Tensor -> T.Tensor) -> Tensor -> Tensor -> IO ()
+testModel paramsY net xs ys = do
+    let ys'  = net xs
+        mape = T.asValue @[Float] . T.meanDim (Dim 0) RemoveDim T.Float
+             . T.mulScalar 100 . T.abs $ (ys - ys') / ys
+    putStrLn "Prediction MAPEs"
+    mapM_ putStrLn $ zipWith (\p m -> p ++ ":\t" ++ show m ++ "%") paramsY mape

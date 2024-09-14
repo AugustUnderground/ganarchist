@@ -9,4 +9,4 @@ main = do
     putStrLn $ "Training for " ++ show epochs ++ " epochs"
     train epochs
   where
-    epochs = 50
+    epochs = 30

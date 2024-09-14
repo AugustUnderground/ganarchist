@@ -77,8 +77,7 @@ loadCheckPoint path spec = do
     pure (net, opt)
 
 -- | Trace and Return a Script Module
-traceModel :: Int -> [String] -> [String]
-           -> (Tensor -> Tensor) -> IO ScriptModule
+traceModel :: Int -> [String] -> [String] -> (Tensor -> Tensor) -> IO ScriptModule
 traceModel num xs ys predict = do
     !rm <- T.randnIO' [10,num] >>= T.trace "GaN" "forward" fun . singleton
     T.define rm $ "def inputs(self,x):\n\treturn " ++ show xs ++ "\n"

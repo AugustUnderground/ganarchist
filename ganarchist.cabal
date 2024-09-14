@@ -27,12 +27,10 @@ source-repository head
 
 library
   exposed-modules:
-      Data.Frame
       HyperParameters
       Lib
       Net
       Run
-      Torch.Extensions
   other-modules:
       Paths_ganarchist
   autogen-modules:
@@ -57,10 +55,6 @@ library
 
 executable ganarchist-exe
   main-is: Main.hs
-  other-modules:
-      Paths_ganarchist
-  autogen-modules:
-      Paths_ganarchist
   hs-source-dirs:
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N

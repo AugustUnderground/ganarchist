@@ -57,6 +57,9 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - ganarchist
+    when:
+    - condition: false
+      other-modules: Paths_ganarchist
 
 tests:
   ganarchist-test:
