@@ -7,7 +7,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
--- | Statically Typed Model Training
+-- | Run Model Training 
 module Run where
 
 import           Lib

@@ -155,7 +155,7 @@ instance GHC.Generics.Generic Net.Net
 instance Torch.NN.Randomizable Net.NetSpec Net.Net
 
 
--- | Statically Typed Model Training
+-- | Run Model Training
 module Run
 
 -- | A single batch of Data
