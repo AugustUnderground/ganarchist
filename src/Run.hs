@@ -16,7 +16,7 @@ import           HyperParameters
 import           Data.List                 (elemIndex)
 import           Data.Maybe                (fromJust)
 import           Control.Monad             (when)
-import           Control.Monad.State       (gets, MonadIO (..), MonadState (..), StateT (..), evalStateT)
+import           Control.Monad.State       (gets, MonadIO (..), MonadState (..), StateT (..))
 import           Torch                     ( Tensor, Dim (..), LearningRate
                                            , KeepDim (..), Reduction (..))
 import qualified Torch                as T
@@ -61,7 +61,7 @@ validEpoch [] = do
 validEpoch (b:bs) = do
     s@TrainState{..} <- get
     let l = validStep model b
-    put $ s {lossBuffer' = l : lossBuffer'}
+    put s {lossBuffer' = l : lossBuffer'}
     validEpoch bs 
 
 -- | Training Step with Gradient
@@ -166,7 +166,7 @@ train num = do
     let predict = scale' minY maxY . forward net' . scale minX maxX
 
     traceModel dimX paramsX paramsY predict >>= saveInferenceModel modelDir 
-    trace <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
+    net'' <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
 
     testModel paramsY net'' datX' datY'
 
@@ -184,6 +184,6 @@ testModel :: [String] -> (T.Tensor -> T.Tensor) -> Tensor -> Tensor -> IO ()
 testModel paramsY net xs ys = do
     let ys'  = net xs
         mape = T.asValue @[Float] . T.meanDim (Dim 0) RemoveDim T.Float
-             . T.mulScalar 100 . T.abs $ (ys - ys') / ys
+             . T.mulScalar @Float 100.0 . T.abs $ (ys - ys') / ys
     putStrLn "Prediction MAPEs"
     mapM_ putStrLn $ zipWith (\p m -> p ++ ":\t" ++ show m ++ "%") paramsY mape
