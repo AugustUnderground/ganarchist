@@ -31,8 +31,6 @@ import           Data.List.Split          (splitOn)
 import           Control.Monad.State      (evalState, MonadState (put, get), State, StateT)
 import           Torch                    (Tensor, Device (..), DeviceType (..), Dim (..))
 import qualified Torch               as T
-import           Torch.NN                 (Parameterized (..))
-import qualified Torch.NN            as NN
 
 -- | Available Transistors
 data Transistor = GS66502B -- ^ GaN Systems GS66502B

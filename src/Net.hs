@@ -17,7 +17,8 @@ import           HyperParameters
 import           Data.List                      (singleton)
 import           GHC.Generics                   (Generic)
 import           Torch                          ( Tensor, Linear, LinearSpec (..)
-                                                , Randomizable (..), ScriptModule )
+                                                , Randomizable (..)
+                                                , ScriptModule, Graph )
 import qualified Torch                     as T
 import qualified Torch.Functional.Internal as T (mish)
 import           Torch.NN                       (Parameterized)
@@ -94,8 +95,22 @@ unTraceModel model' x = y
 
 -- | Save a Traced ScriptModule
 saveInferenceModel :: FilePath -> ScriptModule -> IO ()
-saveInferenceModel path model = T.saveScript model $ path ++ "/trace.pt"
+saveInferenceModel path model = T.saveScript model
+                              $ path ++ "/trace.pt"
 
 -- | Load a Traced ScriptModule
 loadInferenceModel :: FilePath -> IO ScriptModule
-loadInferenceModel path = T.loadScript T.WithoutRequiredGrad $ path ++ "/trace.pt"
+loadInferenceModel path = T.loadScript T.WithoutRequiredGrad
+                        $ path ++ "/trace.pt"
+
+-- | Trace Torch Module with `num` inputs as grpah
+traceGraph :: Int -> (Tensor -> Tensor) -> IO Graph
+traceGraph num predict = T.randnIO' [10,num]
+                          >>= T.traceAsGraph fun . singleton
+  where
+    fun = pure . map predict
+
+-- | Save ONNX Model
+saveONNX :: FilePath -> Int -> (Tensor -> Tensor) -> IO ()
+saveONNX path num predict = traceGraph num predict
+                              >>= T.printOnnx >>= writeFile path
