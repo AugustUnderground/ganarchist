@@ -81,8 +81,8 @@ loadCheckPoint path spec = do
 traceModel :: Int -> [String] -> [String] -> (Tensor -> Tensor) -> IO ScriptModule
 traceModel num xs ys predict = do
     !rm <- T.randnIO' [10,num] >>= T.trace "GaN" "forward" fun . singleton
-    T.define rm $ "def inputs(self,x):\n\treturn " ++ show xs ++ "\n"
-    T.define rm $ "def outputs(self,x):\n\treturn " ++ show ys ++ "\n"
+    T.define rm $ "def inputs(self):\n\treturn " ++ show xs ++ "\n"
+    T.define rm $ "def outputs(self):\n\treturn " ++ show ys ++ "\n"
     T.toScriptModule rm
   where
     fun = pure . map predict
@@ -111,6 +111,7 @@ traceGraph num predict = T.randnIO' [10,num]
     fun = pure . map predict
 
 -- | Save ONNX Model
-saveONNX :: FilePath -> Int -> (Tensor -> Tensor) -> IO ()
-saveONNX path num predict = traceGraph num predict
-                              >>= T.printOnnx >>= writeFile path
+saveONNXModel :: FilePath -> Graph -> IO ()
+saveONNXModel path graph = T.printOnnx graph >>= writeFile path'
+  where
+    path' = path ++ "/graph.onnx"

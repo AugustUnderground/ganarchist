@@ -166,19 +166,21 @@ train num = do
     let predict = scale' minY maxY . forward net' . scale minX maxX
 
     traceModel dimX paramsX paramsY predict >>= saveInferenceModel modelDir 
-    net'' <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
+    traceGraph dimX predict >>= saveONNXModel modelDir
+
+    !net'' <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
 
     testModel paramsY net'' datX' datY'
 
     putStrLn $ "Final checkpoint in " ++ modelDir
   where
-    spec     = NetSpec dimX dimY
     l        = []
     dataPath = "./data"
     paramsY  = ["C_ISS", "C_OSS", "C_RSS", "I_DSS", "Q_G", "Q_GD", "Q_GS", "R_DS_on", "R_G"]
     paramsX  = ["iload_max"]
     dimY     = length paramsY
     dimX     = length paramsX
+    spec     = NetSpec dimX dimY
 
 testModel :: [String] -> (T.Tensor -> T.Tensor) -> Tensor -> Tensor -> IO ()
 testModel paramsY net xs ys = do
