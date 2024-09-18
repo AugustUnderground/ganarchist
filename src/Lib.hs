@@ -54,8 +54,12 @@ cpu :: Device
 cpu = Device CPU 0
 
 -- | Inverse of log10
-pow10 :: T.Tensor -> T.Tensor
+pow10 :: Tensor -> Tensor
 pow10 = T.powScalar' 10.0
+
+-- | Re-implemented log10
+log10' :: Tensor -> Tensor
+log10' x = T.div (T.log x) . T.log . T.mulScalar @Float 10.0 $ T.onesLike x
 
 -- | Torch.indexSelect but with a boolean mask
 maskSelect :: Int -> Tensor -> Tensor -> Tensor
@@ -85,7 +89,7 @@ scale' xMin xMax x = (x * (xMax - xMin)) + xMin
 
 -- | Apply log10 to masked data
 trafo :: Tensor -> Tensor -> Tensor
-trafo m x = T.add (T.mul m' x) . T.log10 . T.add m' . T.mul m . T.abs $ x
+trafo m x = T.add (T.mul m' x) . log10' . T.add m' . T.mul m . T.abs $ x
   where
     m' = T.sub (T.onesLike m) m
 

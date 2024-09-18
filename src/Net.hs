@@ -100,7 +100,7 @@ unTraceModel model' x = y
 -- | Save a Traced ScriptModule
 saveInferenceModel :: FilePath -> ScriptModule -> IO ()
 saveInferenceModel path model = T.saveScript model
-                              $ path ++ "/trace.pt"
+                              $ path ++  "/trace.pt"
 
 -- | Load a Traced ScriptModule
 loadInferenceModel :: FilePath -> IO ScriptModule

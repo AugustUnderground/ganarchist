@@ -153,13 +153,13 @@ train num = do
     --     >>= withGrad >>= saveCheckPoint modelDir
     _ <- runStateT (runTraining datTrain datValid) initialState
 
-    -- let modelDir = "./models/20240918-063454"
+    -- let modelDir = "./models/20240918-121545"
     -- !net' <- loadCheckPoint modelDir spec >>= noGrad . fst
     -- let predict = trafo' maskY . scale' minY maxY
     --             . forward net'
     --             . scale minX maxX . trafo maskX
 
-    -- traceModel paramsX paramsY predict >>= saveInferenceModel modelDir 
+    -- traceModel paramsX paramsY predict >>= saveInferenceModel modelDir
     -- !net'' <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
 
     -- traceGraph dimX predict >>= saveONNXModel modelDir
