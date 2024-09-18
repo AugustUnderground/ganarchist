@@ -13,8 +13,6 @@ module Run where
 import           Lib
 import           Net
 import           HyperParameters
-import           Data.List                 (elemIndex)
-import           Data.Maybe                (fromJust)
 import           Control.Monad             (when)
 import           Control.Monad.State       (gets, MonadIO (..), MonadState (..), StateT (..))
 import           Torch                     ( Tensor, Dim (..), LearningRate
@@ -126,22 +124,16 @@ train :: Int -> IO ()
 train num = do
     modelDir <- createModelDir "./models"
 
-    (header,datRaw) <- loadCSVs dataPath
-
-    let idxHi = fromJust $ elemIndex "energy_high" header
-        idxLo = fromJust $ elemIndex "energy_low" header
-        hi    = T.select 1 idxHi datRaw
-        lo    = T.select 1 idxLo datRaw
-        msk   = T.logicalAnd (T.lt hi 500.0e-6 `T.logicalAnd` T.gt hi 10.0e-9)
-                             (T.lt lo 500.0e-6 `T.logicalAnd` T.gt lo 10.0e-9)
-        dat'  = maskSelect 0 msk datRaw
+    (header,datRaw) <- readTSV dataPath
+    let dat'  = T.repeat [200,1] datRaw
         nRows = head $ T.shape dat'
 
-    !datShuffled <- flip (T.indexSelect 0) dat' <$> T.multinomialIO' (T.arange' 0 nRows 1) nRows 
+    !datShuffled <- flip (T.indexSelect 0) dat'
+                      <$> T.multinomialIO' (T.arange' 0 nRows 1) nRows 
 
     let ts    = floor @Float $ 0.85 * realToFrac (head $ T.shape datShuffled)
-        datX' = headerSelect header paramsX datShuffled
-        datY' = headerSelect header paramsY datShuffled
+        datX' = trafo maskX $ headerSelect header paramsX datShuffled
+        datY' = trafo maskY $ headerSelect header paramsY datShuffled
         minX  = fst . T.minDim (Dim 0) RemoveDim $ datX'
         maxX  = fst . T.maxDim (Dim 0) RemoveDim $ datX'
         minY  = fst . T.minDim (Dim 0) RemoveDim $ datY'
@@ -161,25 +153,29 @@ train num = do
     --     >>= withGrad >>= saveCheckPoint modelDir
     _ <- runStateT (runTraining datTrain datValid) initialState
 
-    -- let modelDir = "models/20240914-183529"
-    !net' <- loadCheckPoint modelDir spec >>= noGrad . fst
-    let predict = scale' minY maxY . forward net' . scale minX maxX
+    -- let modelDir = "./models/20240918-063454"
+    -- !net' <- loadCheckPoint modelDir spec >>= noGrad . fst
+    -- let predict = trafo' maskY . scale' minY maxY
+    --             . forward net'
+    --             . scale minX maxX . trafo maskX
 
-    traceModel dimX paramsX paramsY predict >>= saveInferenceModel modelDir 
-    traceGraph dimX predict >>= saveONNXModel modelDir
+    -- traceModel paramsX paramsY predict >>= saveInferenceModel modelDir 
+    -- !net'' <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
 
-    !net'' <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
+    -- traceGraph dimX predict >>= saveONNXModel modelDir
 
-    testModel paramsY net'' datX' datY'
+    -- testModel paramsY net'' datX' datY'
 
     putStrLn $ "Final checkpoint in " ++ modelDir
   where
     l        = []
-    dataPath = "./data"
-    paramsY  = ["C_ISS", "C_OSS", "C_RSS", "I_DSS", "Q_G", "Q_GD", "Q_GS", "R_DS_on", "R_G"]
-    paramsX  = ["iload_max"]
-    dimY     = length paramsY
+    dataPath = "./data/gans.txt"
+    paramsX  = ["v_ds_work", "i_d_max"]
+    paramsY  = ["r_ds_on","r_g","v_th","c_iss","c_oss","c_rss"]
+    maskX    = boolMask' ["v_ds_work", "i_d_max"] paramsX
+    maskY    = boolMask' ["r_ds_on","c_iss","c_oss","c_rss"] paramsY
     dimX     = length paramsX
+    dimY     = length paramsY
     spec     = NetSpec dimX dimY
 
 testModel :: [String] -> (T.Tensor -> T.Tensor) -> Tensor -> Tensor -> IO ()

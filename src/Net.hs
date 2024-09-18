@@ -7,6 +7,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | Neural Network Definition
@@ -20,7 +21,7 @@ import           Torch                          ( Tensor, Linear, LinearSpec (..
                                                 , Randomizable (..)
                                                 , ScriptModule, Graph )
 import qualified Torch                     as T
-import qualified Torch.Functional.Internal as T (mish)
+import qualified Torch.Functional.Internal as T (cartesian_prod)
 import           Torch.NN                       (Parameterized)
 import qualified Torch.NN                  as NN
 import qualified Torch.Optim.CppOptim      as T
@@ -48,10 +49,10 @@ instance Randomizable NetSpec Net where
 
 -- | Neural Network Forward Pass with scaled Data
 forward :: Net -> Tensor -> Tensor
-forward Net{..} = T.linear fc4 . T.mish
-                . T.linear fc3 . T.mish
-                . T.linear fc2 . T.mish
-                . T.linear fc1 . T.mish
+forward Net{..} = T.linear fc4 . mish
+                . T.linear fc3 . mish
+                . T.linear fc2 . mish
+                . T.linear fc1 . mish
                 . T.linear fc0 
 
 -- | Remove Gradient for tracing / scripting
@@ -78,14 +79,17 @@ loadCheckPoint path spec = do
     pure (net, opt)
 
 -- | Trace and Return a Script Module
-traceModel :: Int -> [String] -> [String] -> (Tensor -> Tensor) -> IO ScriptModule
-traceModel num xs ys predict = do
-    !rm <- T.randnIO' [10,num] >>= T.trace "GaN" "forward" fun . singleton
+traceModel :: [String] -> [String] -> (Tensor -> Tensor) -> IO ScriptModule
+traceModel xs ys predict = do
+    !rm <- T.trace "GaN" "forward" fun [x]
     T.define rm $ "def inputs(self):\n\treturn " ++ show xs ++ "\n"
     T.define rm $ "def outputs(self):\n\treturn " ++ show ys ++ "\n"
     T.toScriptModule rm
   where
     fun = pure . map predict
+    v = T.linspace' @Float @Float 50.0 350.0 10
+    i = T.linspace' @Float @Float 10.0 100.0 10
+    x = T.cartesian_prod [v,i]
 
 -- | Trace to Function
 unTraceModel :: ScriptModule -> (Tensor -> Tensor)

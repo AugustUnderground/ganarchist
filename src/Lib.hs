@@ -17,20 +17,25 @@ module Lib ( liftState
            , maskSelect
            , maskSelect'
            , headerSelect
+           , boolMask'
            , scale
            , scale'
+           , trafo
+           , trafo'
            , createModelDir
+           , mish
            ) where
 
-import           Data.Time.Clock          (getCurrentTime)
-import           Data.Time.Format         (formatTime, defaultTimeLocale)
+import           Data.Time.Clock                (getCurrentTime)
+import           Data.Time.Format               (formatTime, defaultTimeLocale)
 import           System.Directory
-import           Data.List                (elemIndex, isPrefixOf)
-import           Data.Maybe               (fromJust)
-import           Data.List.Split          (splitOn)
-import           Control.Monad.State      (evalState, MonadState (put, get), State, StateT)
-import           Torch                    (Tensor, Device (..), DeviceType (..), Dim (..))
-import qualified Torch               as T
+import           Data.List                      (elemIndex, isPrefixOf)
+import           Data.Maybe                     (fromJust)
+import           Data.List.Split                (splitOn)
+import           Control.Monad.State            (evalState, MonadState (put, get), State, StateT)
+import           Torch                          (Tensor, Device (..), DeviceType (..), Dim (..))
+import qualified Torch                     as T
+import qualified Torch.Functional.Internal as T (powScalar')
 
 -- | Available Transistors
 data Transistor = GS66502B -- ^ GaN Systems GS66502B
@@ -47,6 +52,10 @@ gpu = Device CUDA 1
 -- | Default CPU Device
 cpu :: Device
 cpu = Device CPU 0
+
+-- | Inverse of log10
+pow10 :: T.Tensor -> T.Tensor
+pow10 = T.powScalar' 10.0
 
 -- | Torch.indexSelect but with a boolean mask
 maskSelect :: Int -> Tensor -> Tensor -> Tensor
@@ -73,6 +82,31 @@ scale' :: Tensor -- ^ min
        -> Tensor -- ^ scaled input
        -> Tensor -- ^ un-scaled output
 scale' xMin xMax x = (x * (xMax - xMin)) + xMin
+
+-- | Apply log10 to masked data
+trafo :: Tensor -> Tensor -> Tensor
+trafo m x = T.add (T.mul m' x) . T.log10 . T.add m' . T.mul m . T.abs $ x
+  where
+    m' = T.sub (T.onesLike m) m
+
+-- | Apply pow10 to masked data
+trafo' :: Tensor -> Tensor -> Tensor
+trafo' m x = T.add (T.mul m' x) . T.mul m . pow10 $ T.mul m x
+  where
+    m' = T.sub (T.onesLike m) m
+
+-- | Mish activation function
+mish :: Tensor -> Tensor
+mish x = T.mul x . T.tanh . T.log . T.addScalar @Float 1.0 $ T.exp x
+
+-- | Create a boolean mask from a subset of column names
+boolMask :: [String] -> [String] -> [Bool]
+boolMask sub = map (`elem` sub)
+
+-- | Create a boolean mask Tensor from a subset of column names
+boolMask' :: [String] -> [String] -> Tensor
+boolMask' sub set = T.asTensor' (boolMask sub set) 
+                  $ T.withDType T.Float T.defaultOpts
 
 -- | Select columns based in strings in string list
 headerSelect :: [String] -> [String] -> Tensor -> Tensor
@@ -123,10 +157,21 @@ loadCSVs path = do
 -- | Read data from TXT file
 readTSV :: FilePath -> IO ([String], Tensor)
 readTSV path = do
-  file <- filter (not . isPrefixOf "%") . lines <$> readFile path
-  let col = drop 2 .words $ head file
-      dat = T.asTensor . map (map (read @Float) . drop 2 . words) $ tail file
-  pure (col, dat)
+    file <- filter ld . lines <$> readFile path
+    let col = drop 2 . words $ head file
+        dat = T.asTensor
+            . map (map (read @Float) . replaceNth 8 "0.0" . drop 2 . words)
+            $ tail file
+    pure (col, dat)
+  where
+    ld "" = False
+    ld l  = not $ isPrefixOf "%" l
+
+-- | Update nth value in a list
+replaceNth :: Int -> a -> [a] -> [a]
+replaceNth _ _   []   = []
+replaceNth i n (x:xs) | i == 0    = n:xs
+                      | otherwise = x:replaceNth (i-1) n xs
 
 -- | Current Timestamp as formatted string
 currentTimeStamp :: String -> IO String
