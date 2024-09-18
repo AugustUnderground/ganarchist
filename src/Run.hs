@@ -153,7 +153,7 @@ train num = do
     --     >>= withGrad >>= saveCheckPoint modelDir
     _ <- runStateT (runTraining datTrain datValid) initialState
 
-    -- let modelDir = "./models/20240918-121545"
+    -- let modelDir = "./models/20240918-155630"
     -- !net' <- loadCheckPoint modelDir spec >>= noGrad . fst
     -- let predict = trafo' maskY . scale' minY maxY
     --             . forward net'
@@ -171,9 +171,9 @@ train num = do
     l        = []
     dataPath = "./data/gans.txt"
     paramsX  = ["v_ds_work", "i_d_max"]
-    paramsY  = ["r_ds_on","r_g","v_th","c_iss","c_oss","c_rss"]
+    paramsY  = ["r_ds_on","r_g","g_fs","v_gs_work","v_gs_max","v_th","c_iss","c_oss","c_rss"]
     maskX    = boolMask' ["v_ds_work", "i_d_max"] paramsX
-    maskY    = boolMask' ["r_ds_on","c_iss","c_oss","c_rss"] paramsY
+    maskY    = boolMask' ["r_ds_on","g_fs","c_iss","c_oss","c_rss"] paramsY
     dimX     = length paramsX
     dimY     = length paramsY
     spec     = NetSpec dimX dimY

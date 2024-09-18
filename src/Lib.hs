@@ -29,7 +29,7 @@ module Lib ( liftState
 import           Data.Time.Clock                (getCurrentTime)
 import           Data.Time.Format               (formatTime, defaultTimeLocale)
 import           System.Directory
-import           Data.List                      (elemIndex, isPrefixOf)
+import           Data.List                      (elemIndex, isPrefixOf, isInfixOf)
 import           Data.Maybe                     (fromJust)
 import           Data.List.Split                (splitOn)
 import           Control.Monad.State            (evalState, MonadState (put, get), State, StateT)
@@ -89,15 +89,15 @@ scale' xMin xMax x = (x * (xMax - xMin)) + xMin
 
 -- | Apply log10 to masked data
 trafo :: Tensor -> Tensor -> Tensor
-trafo m x = T.add (T.mul m' x) . log10' . T.add m' . T.mul m . T.abs $ x
+trafo m x = T.add (T.mul m' x) . T.log10 . T.add m' . T.mul m . T.abs $ x
   where
-    m' = T.sub (T.onesLike m) m
+    m' = T.sub (T.onesLike x) m 
 
 -- | Apply pow10 to masked data
 trafo' :: Tensor -> Tensor -> Tensor
 trafo' m x = T.add (T.mul m' x) . T.mul m . pow10 $ T.mul m x
   where
-    m' = T.sub (T.onesLike m) m
+    m' = T.sub (T.onesLike x) m 
 
 -- | Mish activation function
 mish :: Tensor -> Tensor
@@ -163,13 +163,11 @@ readTSV :: FilePath -> IO ([String], Tensor)
 readTSV path = do
     file <- filter ld . lines <$> readFile path
     let col = drop 2 . words $ head file
-        dat = T.asTensor
-            . map (map (read @Float) . replaceNth 8 "0.0" . drop 2 . words)
-            $ tail file
+        dat = T.asTensor . map (map (read @Float) . drop 2 . words) $ tail file
     pure (col, dat)
   where
     ld "" = False
-    ld l  = not $ isPrefixOf "%" l
+    ld l  = not $ ("%" `isPrefixOf` l) || ("---" `isInfixOf` l)
 
 -- | Update nth value in a list
 replaceNth :: Int -> a -> [a] -> [a]
