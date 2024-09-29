@@ -120,8 +120,8 @@ runTraining td vd = do
     if epoch' <= 0 then pure model else runTraining td vd
 
 -- | Main Training Function
-train :: Int -> IO ()
-train num = do
+trainModel :: Int -> IO ()
+trainModel num = do
     modelDir <- createModelDir "./models"
 
     (header,datRaw) <- readTSV dataPath
@@ -178,7 +178,7 @@ train num = do
     dimY     = length paramsY
     spec     = NetSpec dimX dimY
 
-testModel :: [String] -> (T.Tensor -> T.Tensor) -> Tensor -> Tensor -> IO ()
+testModel :: [String] -> (Tensor -> Tensor) -> Tensor -> Tensor -> IO ()
 testModel paramsY net xs ys = do
     let ys'  = net xs
         mape = T.asValue @[Float] . T.meanDim (Dim 0) RemoveDim T.Float

@@ -29,6 +29,7 @@ dependencies:
 - rando
 - mtl
 - matplotlib
+- aeson
 - data-default-class
 - time
 - directory
