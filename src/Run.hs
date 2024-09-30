@@ -125,8 +125,8 @@ runTraining td vd = do
     if epoch' <= 0 then pure model else runTraining td vd
 
 -- | Main Training Function
-train :: Int -> IO ()
-train num = do
+trainModel :: Int -> IO ()
+trainModel num = do
     modelDir <- createModelDir "./models"
 
     (header,datRaw) <- readCSV dataPath

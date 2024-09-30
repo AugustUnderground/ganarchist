@@ -2,11 +2,12 @@
 
 module Main (main) where
 
-import Run (train)
+-- import Run (trainModel)
+import GPR (trainModel)
 
 main :: IO ()
 main = do 
     putStrLn $ "Training for " ++ show epochs ++ " epochs"
-    train epochs
+    trainModel epochs
   where
-    epochs = 100
+    epochs = 12
