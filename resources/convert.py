@@ -2,7 +2,7 @@ import torch as pt
 import onnx
 import onnxruntime as ort
 
-t = '20240918-155630'
+t = '20240923-093236'
 b = '../models'
 p = f'{b}/{t}'
 m = pt.jit.load(f'{p}/trace.pt')

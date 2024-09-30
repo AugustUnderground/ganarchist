@@ -13,12 +13,15 @@ module Run where
 import           Lib
 import           Net
 import           HyperParameters
-import           Control.Monad             (when)
-import           Control.Monad.State       (gets, MonadIO (..), MonadState (..), StateT (..))
-import           Torch                     ( Tensor, Dim (..), LearningRate
-                                           , KeepDim (..), Reduction (..))
-import qualified Torch                as T
-import qualified Torch.Optim.CppOptim as T
+import           Data.List                      (intercalate)
+import           Data.Time                      (getCurrentTime, diffUTCTime)
+import           Control.Monad                  (when)
+import           Control.Monad.State            (gets, MonadIO (..), MonadState (..), StateT (..))
+import           Torch                          ( Tensor, Dim (..), LearningRate
+                                                , KeepDim (..), Reduction (..))
+import qualified Torch                     as T
+import qualified Torch.Functional.Internal as T (cartesian_prod)
+import qualified Torch.Optim.CppOptim      as T
 
 -- | A single batch of Data
 data Batch = Batch { xs :: !Tensor -- ^ Input Data
@@ -69,7 +72,9 @@ trainStep a m o Batch{..} = do
     (m', o') <- T.runStep m o l a
     pure (m', o', l)
   where
-    l = T.l1Loss T.ReduceSum ys $ forward m xs
+    -- l = T.l1Loss ReduceSum ys $ forward m xs
+    l = fst . T.maxDim (Dim 0) RemoveDim . T.meanDim (Dim 0) RemoveDim T.Float
+      . T.abs . T.sub ys $ forward m xs
 
 -- | Training Epoch
 trainEpoch :: [Batch] -> StateT TrainState IO ()
@@ -124,7 +129,7 @@ train :: Int -> IO ()
 train num = do
     modelDir <- createModelDir "./models"
 
-    (header,datRaw) <- readTSV dataPath
+    (header,datRaw) <- readCSV dataPath
     let dat'  = T.repeat [200,1] datRaw
         nRows = head $ T.shape dat'
 
@@ -149,27 +154,45 @@ train num = do
 
     let initialState = TrainState num l l l l net opt α' bs' modelDir paramsX paramsY
 
+    tic <- getCurrentTime
     -- evalStateT (runTraining datTrain datValid) initialState
     --     >>= withGrad >>= saveCheckPoint modelDir
-    _ <- runStateT (runTraining datTrain datValid) initialState
+    (net', finalState) <- runStateT (runTraining datTrain datValid) initialState
+    toc <- getCurrentTime
 
-    -- let modelDir = "./models/20240918-155630"
+    let tl = reverse $ trainLoss finalState
+        vl = reverse $ validLoss finalState
+        ls = unlines $ "train,valid"
+                     : zipWith (\t v -> show t ++ "," ++ show v) tl vl
+
+    writeFile (modelDir ++ "/loss.csv") ls
+
+    -- let modelDir = "./models/20240923-101548"
     -- !net' <- loadCheckPoint modelDir spec >>= noGrad . fst
-    -- let predict = trafo' maskY . scale' minY maxY
-    --             . forward net'
-    --             . scale minX maxX . trafo maskX
+
+    let predict = trafo' maskY . scale' minY maxY
+                . forward (T.toDevice cpu net')
+                . scale minX maxX . trafo maskX
 
     -- traceModel paramsX paramsY predict >>= saveInferenceModel modelDir
     -- !net'' <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
 
     -- traceGraph dimX predict >>= saveONNXModel modelDir
 
-    -- testModel paramsY net'' datX' datY'
+    tic' <- getCurrentTime
+    let testData = headerSelect header (paramsX ++ paramsY) datRaw
+    testModel modelDir paramsX paramsY testData predict
+    toc' <- getCurrentTime
+
+    let diff  = realToFrac $ diffUTCTime toc tic :: Float
+        diff' = realToFrac $ diffUTCTime toc' tic' :: Float
+        times = "train," ++ show diff ++ "\ntest," ++ show diff'
+    writeFile (modelDir ++ "/times.csv") times
 
     putStrLn $ "Final checkpoint in " ++ modelDir
   where
     l        = []
-    dataPath = "./data/gans.txt"
+    dataPath = "./data/gans.csv"
     paramsX  = ["v_ds_work", "i_d_max"]
     paramsY  = ["r_ds_on","r_g","g_fs","v_gs_work","v_gs_max","v_th","c_iss","c_oss","c_rss"]
     maskX    = boolMask' ["v_ds_work", "i_d_max"] paramsX
@@ -178,10 +201,29 @@ train num = do
     dimY     = length paramsY
     spec     = NetSpec dimX dimY
 
-testModel :: [String] -> (T.Tensor -> T.Tensor) -> Tensor -> Tensor -> IO ()
-testModel paramsY net xs ys = do
-    let ys'  = net xs
-        mape = T.asValue @[Float] . T.meanDim (Dim 0) RemoveDim T.Float
-             . T.mulScalar @Float 100.0 . T.abs $ (ys - ys') / ys
+testModel :: FilePath -> [String] -> [String] -> Tensor -> (T.Tensor -> T.Tensor) -> IO ()
+testModel modelDir paramsX paramsY dat net = do
     putStrLn "Prediction MAPEs"
     mapM_ putStrLn $ zipWith (\p m -> p ++ ":\t" ++ show m ++ "%") paramsY mape
+    writeFile (modelDir ++ "/mapes.csv") mapes
+    writeFile (modelDir ++ "/acc.csv") acc
+    writeFile (modelDir ++ "/synth.csv") synthD
+    pure ()
+  where
+    cols   = paramsX ++ paramsY
+    header = intercalate "," cols
+    xs     = headerSelect cols paramsX dat
+    ys     = headerSelect cols paramsY dat
+    ys'    = net xs
+    mape   = T.asValue @[Float] . T.meanDim (Dim 0) RemoveDim T.Float
+           . T.mulScalar @Float 100.0 . T.abs $ (ys - ys') / ys
+    mapes  = unlines $ "param,mape"
+           : zipWith (\p m -> p ++ "," ++ show m) paramsY mape
+    pHd    = intercalate "," $ paramsX ++ map (++ "-tru") paramsY ++ map (++ "-prd") paramsY
+    prd    = map (intercalate "," . map show) . T.asValue @[[Float]] $ T.cat (T.Dim 1) [xs, ys, ys']
+    acc    = unlines $ pHd : prd
+    synthX = T.cartesian_prod [ T.linspace' @Float @Float 10.0 400.0 10
+                              , T.linspace' @Float @Float  5.0 100.0 10 ]
+    synthY = net synthX
+    synthD = unlines . (header :) . map (intercalate "," . map show)
+           . T.asValue @[[Float]] $ T.cat (T.Dim 1) [synthX, synthY]

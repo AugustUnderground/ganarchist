@@ -31,7 +31,7 @@ import qualified Torch.Optim.CppOptim          as T
 
 -- | Batch Size
 bs' :: Int
-bs' = 16
+bs' = 4
 
 -- | Type Alias for Adam C++ Optimizer
 type Optim = T.CppOptimizerState T.AdamOptions
