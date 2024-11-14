@@ -187,8 +187,8 @@ splitBatches bs = filter ((bs==) . head . T.shape) . T.split bs (Dim 0)
 readDSV :: String -> FilePath -> IO ([String], Tensor)
 readDSV sep path = do
     file <- lines <$> readFile path
-    let col = drop 2 . splitOn sep $ head file
-        dat = T.asTensor . map (map (read @Float) . drop 2 . splitOn sep) $ tail file
+    let col = splitOn sep $ head file
+        dat = T.asTensor . map (map (read @Float) . splitOn sep) $ tail file
     pure (col, dat)
 
 readCSV :: FilePath -> IO ([String], Tensor)

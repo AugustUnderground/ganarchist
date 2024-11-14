@@ -99,7 +99,7 @@ fit' (p:params) = do
         when (mod i 100 == 0) . liftIO . putStrLn
             $ "\tNLL (" ++ show i ++ "): " ++ show (T.asValue l' :: Double)
         liftIO $ T.runStep p' o' l' α
-        ) (p,o) [ 1 .. 1000 :: Int ]
+        ) (p,o) [ 1 .. 666 :: Int ]
     y' <- nll x'
     liftIO . putStrLn $ "Final point " ++ show (length params) ++ ": " ++ show x'
     ((x',y'):) <$> fit' params
@@ -201,14 +201,14 @@ trainModel :: Int -> IO ()
 trainModel num = do
     modelDir <- createModelDir "./models"
 
-    -- (header,datRaw) <- readTSV dataPath
-    let (header,datRaw) = mkData 100 5 10
+    (header,datRaw) <- readCSV dataPath
+    -- let (header,datRaw) = mkData 1000 3 12
 
     let nRows = head $ T.shape datRaw
-    idx <- T.multinomialIO' (T.arange' 0 nRows 1) n 
+    idx <- T.multinomialIO' (T.arange' 0 nRows 1) n
 
-    let trainX' = headerSelect header paramsX datRaw
-        trainY' = headerSelect header paramsY datRaw
+    let trainX' = trafo maskX $ headerSelect header paramsX datRaw
+        trainY' = trafo maskY $ headerSelect header paramsY datRaw
         minX    = fst . T.minDim (Dim 0) RemoveDim $ trainX'
         maxX    = fst . T.maxDim (Dim 0) RemoveDim $ trainX'
         minY    = fst . T.minDim (Dim 0) RemoveDim $ trainY'
@@ -222,49 +222,49 @@ trainModel num = do
 
     let predictor x = T.transpose2D $ T.vstack [m,s]
           where
-            (m',s) = gpr $ scale minX maxX x
-            m      = scale' minY maxY m'
+            (m',s') = gpr . scale minX maxX $ trafo maskX x
+            m       = trafo' maskY $ scale' minY maxY m'
+            s       = T.mul m . T.mul s' $ T.sub maxY minY
 
     idx' <- T.multinomialIO' (T.arange' 0 nRows 1) 10 
-    let testX = T.indexSelect 0 idx' $ headerSelect header paramsX datRaw
-        testY = T.indexSelect 0 idx' $ headerSelect header paramsY datRaw
-        r = T.linspace' @Float @Float 0.0 1.0 10
-        g = T.linspace' @Float @Float 5.0 11.0 3
-        x = T.cartesian_prod [r,g]
-        y = T.exp . T.negative $ T.cumprod 1 T.Float x 
-
-    -- let (_,testD) = mkData 100 2 2
-    --     testX = headerSelect header paramsX testD
-    --     testY = headerSelect header paramsY testD
+    let x = T.indexSelect 0 idx' $ headerSelect header paramsX datRaw
+        y = T.squeezeAll . T.indexSelect 0 idx' $ headerSelect header paramsY datRaw
 
     testModel paramsX paramsY predictor x y
 
-    GPR.traceModel predictor >>= GPR.saveInferenceModel modelDir
+    traceModel predictor >>= saveInferenceModel modelDir
     mdl <- unTraceModel <$> loadInferenceModel modelDir 
 
-    testModel paramsX paramsY mdl testX testY
+    --mdl <- GPR.unTraceModel <$> GPR.loadInferenceModel "./models/20241004-124307"
+    --let (_,testD) = mkData 20 5 5
+    --    testX = headerSelect header paramsX testD
+    --    testY = T.squeezeAll $ headerSelect header paramsY testD
+
+    putStrLn $ "Model saved at " ++ modelDir ++ "/trace.pt"
+
+    GPR.testModel paramsX paramsY mdl x y
 
     pure ()
   where
-    dataPath = "./data/volumes.txt"
-    n        = 200
-    paramsX  = ["r_th", "g_th"]
-    paramsY  = ["volume"]
-    -- maskX    = boolMask' ["r_th"] paramsX
-    -- maskY    = boolMask' ["volume"] paramsY
+    dataPath = "./data/volumes.csv"
+    n        = 100
+    paramsX  = ["rth"]
+    paramsY  = ["vol"]
+    maskX    = boolMask' ["rth"] paramsX
+    maskY    = boolMask' ["vol"] paramsY
 
 testModel :: [String] -> [String] -> (Tensor -> Tensor) -> Tensor -> Tensor -> IO ()
 testModel paramsX paramsY mdl xs ys = do
     print ys
     print ys'
-    print . T.abs . flip T.div ys $ T.sub ys ys'
-    -- linePlot "Volume in cm^3" "R_th in Ohm" ["tru", "prd"] xs $ T.hstack [ys, ys']
-    -- compPlot "Volume in cm^3" ys ys'
+    print . T.abs . flip T.div ys $ T.sub ys' ys
+    linePlot "Volume in cm^3" "R_th in Ohm" ["tru", "prd"] xs yss
+    compPlot "Volume in cm^3" ys ys'
 
     pure ()
   where
-    ys'' = mdl . flip T.withTensorOptions opts $ xs
-    ys'  = T.reshape [-1,1] $ T.select 1 0 ys''
+    ys' = T.squeezeAll . T.select 1 0 $ mdl xs
+    yss = T.transpose2D $ T.vstack [ys, ys']
 
 mkData :: Int -> Int -> Int -> ([String], Tensor)
 mkData n l u = (header,values)
@@ -284,9 +284,7 @@ traceModel p = do
     T.toScriptModule rm
   where
     fun = pure . map p
-    r = T.linspace' @Float @Float 0.0 1.0 10
-    g = T.linspace' @Float @Float 5.0 11.0 3
-    x = T.cartesian_prod [r,g]
+    x = T.reshape [-1,1] $ T.linspace' @Float @Float 0.0 2.0 10
 
 -- | Trace to Function
 unTraceModel :: ScriptModule -> (Tensor -> Tensor)

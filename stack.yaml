@@ -1,5 +1,5 @@
-resolver: lts-22.28
-compiler: ghc-9.6.5
+resolver: lts-22.36 # lts-22.28
+compiler: ghc-9.6.6 # ghc-9.6.5
 
 ghc-options:
   "$locals": -funfolding-use-threshold=16 -fexcess-precision -optc-O3 -optc-ffast-math -threaded -O2 -rtsopts -with-rtsopts=-N +RTS -xp -RTS # -v

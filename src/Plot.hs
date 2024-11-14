@@ -25,11 +25,11 @@ linePlot :: String -> String -> [String] -> Tensor -> Tensor -> IO ()
 linePlot xlabel ylabel labels xs ys = Plt.onscreen plt
   where
     xs' = toList xs
-    ys' = map toList $ cols ys
+    ys' = map toList . cols $ T.transpose2D ys
     plt = Plt.plot xs' ys' % Plt.xlabel xlabel
                            % Plt.ylabel ylabel
                            % Plt.grid True
-                           @@ [o2 "labels" labels]
+                           -- @@ [o2 "labels" labels]
 
 compPlot :: String -> Tensor -> Tensor -> IO ()
 compPlot label xs ys = Plt.onscreen plt
@@ -41,7 +41,7 @@ compPlot label xs ys = Plt.onscreen plt
     plt    = Plt.scatter xs' ys' % Plt.xlabel xlabel
                                  % Plt.ylabel ylabel
                                  % Plt.grid True
-                                 @@ []
+                                 -- @@ []
 
 scatterPlot :: String -> String -> [String] -> Tensor -> Tensor -> IO ()
 scatterPlot xlabel ylabel labels xs ys = Plt.onscreen plt

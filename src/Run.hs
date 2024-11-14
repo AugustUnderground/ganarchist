@@ -95,7 +95,8 @@ trainEpoch (b:bs) = do
 shuffleData :: Tensor -> Tensor -> StateT TrainState IO [Batch]
 shuffleData xs ys = do
     TrainState{..} <- get
-    idx <- liftIO . flip T.multinomialIO' nRows . T.toDevice gpu $ T.arange' 0 nRows 1
+    idx <- liftIO . flip T.multinomialIO' nRows . T.toDevice gpu
+            $ T.arange' 0 nRows 1
     let xs' = splitBatches batchSize $ T.indexSelect 0 idx xs
         ys' = splitBatches batchSize $ T.indexSelect 0 idx ys
     pure $ zipWith Batch xs' ys'
@@ -125,20 +126,21 @@ runTraining td vd = do
     if epoch' <= 0 then pure model else runTraining td vd
 
 -- | Main Training Function
-trainModel :: Int -> IO ()
-trainModel num = do
+trainModel :: FilePath -> Int -> [String] -> [String] -> [String] -> [String]
+           -> IO ()
+trainModel dataPath epochs paramsX paramsY maskX maskY = do
     modelDir <- createModelDir "./models"
 
     (header,datRaw) <- readCSV dataPath
-    let dat'  = T.repeat [200,1] datRaw
+    let dat'  = datRaw -- T.repeat [200,1] datRaw
         nRows = head $ T.shape dat'
 
     !datShuffled <- flip (T.indexSelect 0) dat'
                       <$> T.multinomialIO' (T.arange' 0 nRows 1) nRows 
 
     let ts    = floor @Float $ 0.85 * realToFrac (head $ T.shape datShuffled)
-        datX' = trafo maskX $ headerSelect header paramsX datShuffled
-        datY' = trafo maskY $ headerSelect header paramsY datShuffled
+        datX' = trafo maskX' $ headerSelect header paramsX datShuffled
+        datY' = trafo maskY' $ headerSelect header paramsY datShuffled
         minX  = fst . T.minDim (Dim 0) RemoveDim $ datX'
         maxX  = fst . T.maxDim (Dim 0) RemoveDim $ datX'
         minY  = fst . T.minDim (Dim 0) RemoveDim $ datY'
@@ -152,7 +154,7 @@ trainModel num = do
     net <- T.toDevice gpu <$> T.sample spec
     opt <- T.initOptimizer opt' $ T.flattenParameters net
 
-    let initialState = TrainState num l l l l net opt α' bs' modelDir paramsX paramsY
+    let initialState = TrainState epochs l l l l net opt α' bs' modelDir paramsX paramsY
 
     tic <- getCurrentTime
     -- evalStateT (runTraining datTrain datValid) initialState
@@ -170,18 +172,21 @@ trainModel num = do
     -- let modelDir = "./models/20240923-101548"
     -- !net' <- loadCheckPoint modelDir spec >>= noGrad . fst
 
-    let predict = trafo' maskY . scale' minY maxY
+    let predict = trafo' maskY' . scale' minY maxY
                 . forward (T.toDevice cpu net')
-                . scale minX maxX . trafo maskX
+                . scale minX maxX . trafo maskX'
 
-    -- traceModel paramsX paramsY predict >>= saveInferenceModel modelDir
-    -- !net'' <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
+    let testData = headerSelect header (paramsX ++ paramsY) datRaw
+    testModel modelDir paramsX paramsY testData predict
+
+    traceModel paramsX paramsY predict >>= saveInferenceModel modelDir
+    !net'' <- loadInferenceModel modelDir >>= noGrad . unTraceModel 
 
     -- traceGraph dimX predict >>= saveONNXModel modelDir
 
     tic' <- getCurrentTime
-    let testData = headerSelect header (paramsX ++ paramsY) datRaw
-    testModel modelDir paramsX paramsY testData predict
+    let testData' = headerSelect header (paramsX ++ paramsY) datRaw
+    testModel modelDir paramsX paramsY testData' net''
     toc' <- getCurrentTime
 
     let diff  = realToFrac $ diffUTCTime toc tic :: Float
@@ -191,15 +196,12 @@ trainModel num = do
 
     putStrLn $ "Final checkpoint in " ++ modelDir
   where
-    l        = []
-    dataPath = "./data/gans.csv"
-    paramsX  = ["v_ds_work", "i_d_max"]
-    paramsY  = ["r_ds_on","r_g","g_fs","v_gs_work","v_gs_max","v_th","c_iss","c_oss","c_rss"]
-    maskX    = boolMask' ["v_ds_work", "i_d_max"] paramsX
-    maskY    = boolMask' ["r_ds_on","g_fs","c_iss","c_oss","c_rss"] paramsY
-    dimX     = length paramsX
-    dimY     = length paramsY
-    spec     = NetSpec dimX dimY
+    l      = []
+    maskX' = boolMask' maskX paramsX
+    maskY' = boolMask' maskY paramsY
+    dimX   = length paramsX
+    dimY   = length paramsY
+    spec   = NetSpec dimX dimY
 
 testModel :: FilePath -> [String] -> [String] -> Tensor -> (T.Tensor -> T.Tensor) -> IO ()
 testModel modelDir paramsX paramsY dat net = do
